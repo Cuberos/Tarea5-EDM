@@ -1,0 +1,198 @@
+---
+title: "XAI 3: Model-Agnostic methods"
+output: html_notebook
+names: Carles Cuberos Saus, Jorge Santiago González
+---
+
+## EXERCISE:
+
+Apply PDP to the regression example of predicting bike rentals. Fit a random forest approximation for the prediction of bike rentals (**cnt**). Use the partial dependence plot to visualize the relationships the model learned. Use the slides shown in class as model.  
+
+## QUESTION:
+
+Analyse the influence of **days since 2011, temperature, humidity** and **wind speed** on the predicted bike counts.
+
+
+```{r, warning=FALSE,message=FALSE}
+library(dplyr)
+library(plotly)
+library(reshape2)
+library(lubridate)
+library(randomForestSRC)
+library(modeldata)
+library(caret)
+library(dplyr)
+library(ggplot2)
+library(lime)
+
+set.seed(1)
+
+days <- read.csv("day.csv")
+hour <- read.csv("hour.csv")
+
+days$dteday <- as_date(days$dteday)
+days_since <- select(days, workingday, holiday, temp, hum, windspeed, cnt)
+days_since$days_since_2011 <- int_length(interval(ymd("2011-01-01"), days$dteday)) / (3600*24)
+days_since$SUMMER <- ifelse(days$season == 3, 1, 0)
+days_since$FALL <- ifelse(days$season == 4, 1, 0)
+days_since$WINTER <- ifelse(days$season == 1, 1, 0)
+days_since$MISTY <- ifelse(days$weathersit == 2, 1, 0)
+days_since$RAIN <- ifelse(days$weathersit == 3 | days$weathersit == 4, 1, 0)
+days_since$temp <- days_since$temp * 47 - 8
+days_since$hum <- days_since$hum * 100
+days_since$windspeed <- days_since$windspeed * 67
+
+rf <- rfsrc(cnt~., data=days_since)
+
+
+results <- select(days_since, days_since_2011, temp, hum, windspeed, cnt)
+nr <- nrow(days_since)
+for(c in names(results)[1:4])
+{
+  for(i in 1:nr){
+    r <- days_since
+    r[[c]] <- days_since[[c]][i]
+    sal <- predict(rf, r)$predicted
+    results[[c]][i] <- (sum(sal) / nr)
+  }
+}
+
+results$D1=days_since$days_since_2011
+results$T1=days_since$temp
+results$H1=days_since$hum
+results$W1=days_since$windspeed
+
+library(pdp)
+library(vip)
+
+
+
+p1=ggplot(results,aes(x=D1,y=days_since_2011))+geom_line()+geom_rug(alpha=0.1,sides='b')+labs(x='Days_since_2011')
+p2=ggplot(results,aes(x=T1,y=temp))+geom_line()+geom_rug(alpha=0.1,sides='b')+labs(x='Temperature')
+p3=ggplot(results,aes(x=H1,y=hum))+geom_line()+geom_rug(alpha=0.1,sides='b')+labs(x='Humidity')
+p4=ggplot(results,aes(x=W1,y=windspeed))+geom_rug(alpha=0.1,sides='b')+geom_line()+labs(x='Windspeed')
+
+subplot(p1,p2,p3,p4, shareX = FALSE, titleX = TRUE)
+
+```
+
+## QUESTION:
+
+Analyse the influence of **days since 2011, temperature, humidity** and **wind speed** on the predicted bike counts.
+
+In first place, in the PDP for *days_since_2011** we can observe that there is two differenciable parts, the first one in the first year (days 0-360 aproximately) and the second year (days 361-730 aproximately). 
+In the first year we can observe an almost linear increase in the bicycle rentals until a few days before the day 100 that goes from 2750 to aproximately 3000. After that there is a exponencial increase that goes until the day 110 aprox fllowed by an stable period of time with a low decreasement around the day 360.
+In the second year we can observe a huge exponencial increasemenet that finishes the day 420, followed by a low linear increase until the day 650 and finally a decrease until the last day.
+In general, we can say that the bike rentals increases with the time but the last days has been a little decrease.
+
+Secondly, in the **temp** plot we can observe the bike rentals depending on the temperature. At first, the bike rentals do not change in the gap including the temperatures between negative and 4 degrees and stay around 3150. In the gap between 4 and 22 degrees we can observe a huge increase in the bike renatls that gets to the maximum of almost 5200 rentals. Finally, the tempertaures above 22 degrees have less rentals each time the temperature increases until the maximum temperature around 32 degrees that have 4750 rentals. In general we can say that the renatls increases when the temperature inccreases, but when the temperatures are really high the rentals decreases slowly.
+
+In third place, in the plot of **humidity** we can see that the humidities between 0 and 62,5% has very similar rentals above 4625 and after that it is produced a huge decreasement of the rentals until the humdity close to the 100% that gets to 3500 rentals. In general, the rentals decreases with the humidity except when the humidity has high values (62.5-100) and the rest of values of humidity the bike rantals are the highest but the same for all this values.
+
+In the end, in the **windspeed** plot we can see that the rentals clearly decreases from 0 to 25 km/h that goes from 4625 rentals to 4000 rentals. After that, in the gap between 25 to 35 km/h we can see that the rentals do not change significantly and always is in the lowest number of rentals. In general, the rentals decrease with the wind speed.
+
+
+
+
+## EXERCISE:
+
+Generate a 2D Partial Dependency Plot with humidity and temperature to predict the number of bikes rented depending of those parameters.
+
+BE CAREFUL: due to the size, extract a set of random samples from the BBDD before generating the the data for the Partial Dependency Plot. 
+
+Show the density distribution of both input features with the 2D plot as shown in the class slides. 
+
+TIP: Use geom_tile() to generate the 2D plot. Set width and height to avoid holes. 
+
+
+
+
+```{r,warning=FALSE}
+library(tictoc)
+set.seed(1)
+sampled <- sample_n(days_since, 40)
+temp <- sampled$temp
+hum <- sampled$hum
+th <- inner_join(data.frame(temp),data.frame(hum), by=character())
+th$p <- 0
+
+for(i in 1:nrow(th)){
+  r <- days_since
+  r[["temp"]] <- th[["temp"]][i]
+  r[["hum"]] <- th[["hum"]][i]
+  
+  sal <- predict(rf, r)$predicted
+  th[["p"]][i] <- sum(sal) / nr
+}
+ggplot(th, aes(x=temp, y=hum)) + geom_tile(aes(fill=p, width=10, height=10)) + labs(x="Temperature", y="Humidity") + guides(fill=guide_legend(title="Number of rentals")) + geom_rug(alpha=0.1,sides = 'b')
+
+```
+
+## QUESTION:
+
+Interpret the results.
+
+
+In this plot, we can observe that the lightest the blue the highest number of rentals are produced, all of this depending on both features, temperature and humidity.
+
+We can observe that the the lowest number of rentals are when the temperature is really low, between the -10ºC and 0ºC, and the humidty is really high, between 90 and 100%. We think it is because it's really cold and the humidity makes it even worse.
+The highest rentals are produced in the days that the temperature are between 18-30 ºC and the humidity 20-70% (aprox.) We think that it is because it is a good temperature and the humidty is a good one that does not affect the weather too much.
+After that we can observe another zones in the plot as:
+1: Temp:-10 - 0 ºC,  Humidity : 70-90%  
+2: Temp:-10 - 0 ºC,  Humidity : 20-70% 
+3: Temp: 0 - 11 ºC,  Humidity : 90-100% 
+4: Temp: 0 - 11 ºC  Humidity : 70-90% 
+5: Temp: 0 - 11 ºC,  Humidity : 20-70%  
+
+6: Temp: 11 - 15 ºC,  Humidity : 90-100% 
+7: Temp: 11 - 15 ºC,  Humidity : 70-90% 
+8: Temp: 11 - 15 ºC,  Humidity : 20-90% 
+9: Temp: 15 - 32 ºC,  Humidity : 90-100% 
+10: Temp: 15 - 30 ºC,  Humidity : 70-90% 
+11: Temp: 30 - 35 ºC,  Humidity : 90-100% 
+12: Temp: 30 - 35 ºC,  Humidity : 20-90% 
+
+
+We can assume that the the rentals of bikes has a positive correlation with temperature and an inverse relation with the humidity. Although when the temperature is too high it has a negative correlation.
+
+
+## EXERCISE:
+
+Apply the previous concepts to predict the **price** of a house from the database **kc_house_data.csv**. In this case, use again a random forest approximation for the prediction based on the features **bedrooms**, **bathrooms**, **sqft_living**, **sqft_lot**, **floors** and **yr_built**. 
+Use the partial dependence plot to visualize the relationships the model learned.
+
+BE CAREFUL: due to the size, extract a set of random samples from the BBDD before generating the data for the Partial Dependency Plot. 
+
+
+
+
+```{r, }
+set.seed(15)
+d <- read.csv("kc_house_data.csv")
+
+sampled <- sample_n(d, 1000)
+
+sampled <- select(sampled, bedrooms, bathrooms, sqft_living, sqft_lot, floors, yr_built, price)
+
+rf <- rfsrc(price~., data=sampled)
+results <- select(sampled, bedrooms, bathrooms, sqft_living, floors, price)
+nr <- nrow(sampled)
+for(c in names(results)[1:4])
+{
+  for(i in 1:nr){
+    r <- sampled
+    r[[c]] <- sampled[[c]][i]
+    sal <- predict(rf, r)$predicted
+    results[[c]][i] <- sum(sal) / nr
+  }
+}
+
+```
+
+
+## QUESTION:
+
+Analyse the influence of **bedrooms, bathrooms, sqft_living** and **floors** on the predicted price.
+
+
+
