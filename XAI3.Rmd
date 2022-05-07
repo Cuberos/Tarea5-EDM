@@ -186,6 +186,22 @@ for(c in names(results)[1:4])
     results[[c]][i] <- sum(sal) / nr
   }
 }
+bedrooms1=results$bedrooms
+bathrooms1=results$bathrooms
+sqft_living1=results$sqft_living
+floors1=results$floors
+
+library(pdp)
+library(vip)
+
+
+
+p1=ggplot(sampled,aes(x=bedrooms,y=bedrooms1))+geom_line()+geom_rug(alpha=0.1,sides='b')+labs(x='Bedrooms')
+p2=ggplot(sampled,aes(x=bathrooms,y=bathrooms1))+geom_line()+geom_rug(alpha=0.1,sides='b')+labs(x='Bathrooms')
+p3=ggplot(sampled,aes(x=sqft_living,y=sqft_living1))+geom_line()+geom_rug(alpha=0.1,sides='b')+labs(x='Sqft_living')
+p4=ggplot(sampled,aes(x=floors,y=floors1))+geom_line()+geom_rug(alpha=0.1,sides='b')+labs(x='Floors')
+
+subplot(p1,p2,p3,p4, shareX = FALSE, titleX = TRUE)
 
 ```
 
@@ -193,6 +209,15 @@ for(c in names(results)[1:4])
 ## QUESTION:
 
 Analyse the influence of **bedrooms, bathrooms, sqft_living** and **floors** on the predicted price.
+
+In the **Bedrooms** plot, we can observe that the houses with 1 bedroom has a high price(a little over 530000) and we think that is caused by probably being in the city center and maybe they are the newst or have relly good reform. Then the 2 bedroom houses decreases the price (527500 aprox.) but with the 3 bedrooms houses has the the lowest price from all (less than 520000). We think that maybe it's because it's the most frequent house of all of them and it has in all zones, including the cheapes ones. After that the prices increases rapidly until higher than 530000 with 6 bedrooms houses. It is important see taht the 5 bedroom are a little cheaper than the 4 bedroom ones.
+
+In the **Bathrooms** plot we can observe that has a linear relation with the price, so how many more bathrooms the price will be more. The lowest price is for 0.5 bathrooms that is around 400000 and the highest that around 4.5 bathrooms with almost 800000 asprice. The bathrooms value is a float because when a bathroom that is added to the house has no shower or other important furniture does not count as an entire bathroom an add its count as 0.5 or something like that.
+
+In the **Sqft_living** plot we cn see that has a linear reltion too, if a house has more square feets the higher will be the price. The lowest is when the house has around 500 sqft and the price is a bit lower than 40000 and then increases until more than 1000000 and the sqrft is around 6770. We can observe some peaks too, and that's maybe of the influence of the zone that the price per sqft will be more depending on this zone.
+
+Finally, the **Floors** plot show us another linear relation, the price will be higher how many more rooms will have the house. We see that if the house has 1 floor the price is almost 515000, as the lowest price, and if the house has 2.5 floors has the highest price with almost 540000. But the prices from 3 and 3.5 floors are really similar to the highest. The value for floors is a float because the same reason as in bathrooms, the floors that are not comlete, as terraces are counted as 0.5 floors.
+
 
 
 
